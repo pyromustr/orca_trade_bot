@@ -5,7 +5,7 @@ import {
   BarChart3,
   KeyRound
 } from "lucide-react";
-import { getUserByTelegramId } from "@/services/api";
+import { getUserByTelegramId, getApiKeys } from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -42,6 +42,15 @@ interface Trade {
   tticket: string;
   sl_wait: number;
   tp_wait: number;
+  api_name?: string; // Borsa ismi
+}
+
+interface ApiKey {
+  id: number;
+  user_id: number;
+  api_name: string;
+  api_key: string;
+  api_secret: string;
 }
 
 const Dashboard: React.FC = () => {
@@ -49,6 +58,7 @@ const Dashboard: React.FC = () => {
   const [openTrades, setOpenTrades] = useState<Trade[]>([]);
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [apiCount, setApiCount] = useState<number>(0);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   
@@ -59,8 +69,12 @@ const Dashboard: React.FC = () => {
         try {
           const user = await getUserByTelegramId(telegramId);
           setUsername(user.username);
-          await fetchTrades(user.id);
-          fetchApiKeys(user.id);
+          
+          // Önce API anahtarlarını çek
+          const apiKeysData = await fetchApiKeys(user.id);
+          
+          // Sonra işlemleri çek ve API isimlerini ekle
+          await fetchTrades(user.id, apiKeysData);
         } catch (error) {
           console.error('Error fetching user:', error);
         }
@@ -88,14 +102,18 @@ const Dashboard: React.FC = () => {
       const response = await fetch(`/api/trades/open?userId=${userId}`);
       if (!response.ok) throw new Error('Açık işlemler yenilenirken hata oluştu');
       const data = await response.json();
-      setOpenTrades(data);
+      
+      // API isimlerini ekle
+      const tradesWithApiNames = addApiNamesToTrades(data, apiKeys);
+      
+      setOpenTrades(tradesWithApiNames);
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error refreshing open trades:', error);
     }
   };
 
-  const fetchApiKeys = async (userId: number) => {
+  const fetchApiKeys = async (userId: number): Promise<ApiKey[]> => {
     try {
       const response = await fetch(`/api/keys?user_id=${userId}`);
       if (!response.ok) {
@@ -103,18 +121,33 @@ const Dashboard: React.FC = () => {
       }
       const data = await response.json();
       if (Array.isArray(data)) {
+        setApiKeys(data);
         setApiCount(data.length);
+        return data;
       } else {
         console.error('API keys verisi dizi değil:', data);
         setApiCount(0);
+        return [];
       }
     } catch (error) {
       console.error('Error fetching API keys:', error);
       setApiCount(0);
+      return [];
     }
   };
 
-  const fetchTrades = async (userId: number) => {
+  // İşlemlere API isimlerini ekle
+  const addApiNamesToTrades = (trades: Trade[], apiKeys: ApiKey[]): Trade[] => {
+    return trades.map(trade => {
+      const apiKey = apiKeys.find(key => key.id === trade.api_id);
+      return {
+        ...trade,
+        api_name: apiKey ? apiKey.api_name : 'Bilinmeyen'
+      };
+    });
+  };
+
+  const fetchTrades = async (userId: number, apiKeysData: ApiKey[]) => {
     try {
       setLoading(true);
       
@@ -123,14 +156,20 @@ const Dashboard: React.FC = () => {
       if (!openResponse.ok) throw new Error('Açık işlemler getirilemedi');
       const openData = await openResponse.json();
       
-      setOpenTrades(openData);
+      // API isimlerini ekle
+      const openTradesWithApiNames = addApiNamesToTrades(openData, apiKeysData);
+      setOpenTrades(openTradesWithApiNames);
+      
       setLastUpdated(new Date());
 
       // Tüm işlemleri çek
       const allResponse = await fetch(`/api/trades/all?userId=${userId}`);
       if (!allResponse.ok) throw new Error('Tüm işlemler getirilemedi');
       const allData = await allResponse.json();
-      setAllTrades(allData);
+      
+      // API isimlerini ekle
+      const allTradesWithApiNames = addApiNamesToTrades(allData, apiKeysData);
+      setAllTrades(allTradesWithApiNames);
     } catch (error) {
       console.error('Error fetching trades:', error);
     } finally {
