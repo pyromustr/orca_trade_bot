@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -36,6 +36,7 @@ interface Trade {
   tticket: string;
   sl_wait: number;
   tp_wait: number;
+  api_name?: string; // Borsa ismi
 }
 
 interface AllTradesListProps {
@@ -47,7 +48,7 @@ interface AllTradesListProps {
 
 const AllTradesList: React.FC<AllTradesListProps> = ({ trades, loading, limit = 5, className }) => {
   const t = useT();
-  const [expandedTrade, setExpandedTrade] = React.useState<string | number | null>(null);
+  const [expandedTrade, setExpandedTrade] = useState<string | number | null>(null);
 
   const formatPrice = (price: any) => {
     const numPrice = Number(price);
@@ -81,11 +82,11 @@ const AllTradesList: React.FC<AllTradesListProps> = ({ trades, loading, limit = 
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="text-xs">Borsa</TableHead>
               <TableHead className="text-xs">Sembol</TableHead>
               <TableHead className="text-xs">Yön</TableHead>
-              <TableHead className="text-xs">Açılış/Kapanış</TableHead>
-              <TableHead className="text-xs">Tarih</TableHead>
-              <TableHead className="text-xs">Kâr</TableHead>
+              <TableHead className="text-xs hidden md:table-cell">Açılış/Kapanış</TableHead>
+              <TableHead className="text-xs hidden md:table-cell">Kâr</TableHead>
               <TableHead className="w-[32px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -103,6 +104,7 @@ const AllTradesList: React.FC<AllTradesListProps> = ({ trades, loading, limit = 
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setExpandedTrade(expandedTrade === trade.id ? null : trade.id)}
                   >
+                    <TableCell className="text-xs font-medium">{trade.api_name || "Bilinmiyor"}</TableCell>
                     <TableCell className="text-xs font-medium">{trade.symbol}</TableCell>
                     <TableCell className="text-xs">
                       {trade.trend === 'LONG' ? (
@@ -115,16 +117,8 @@ const AllTradesList: React.FC<AllTradesListProps> = ({ trades, loading, limit = 
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs">{formatPrice(trade.open)}/{formatPrice(trade.close)}</TableCell>
-                    <TableCell className="text-xs">
-                      {formatDate(trade.opentime)}
-                      {trade.closetime && trade.status === 0 && (
-                        <div className="text-xs opacity-75">
-                          {formatDate(trade.closetime)}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className={`text-xs ${trade.profit > 0 ? 'text-signal-success' : trade.profit < 0 ? 'text-signal-danger' : ''}`}>
+                    <TableCell className="text-xs hidden md:table-cell">{formatPrice(trade.open)}/{formatPrice(trade.close)}</TableCell>
+                    <TableCell className={`text-xs hidden md:table-cell ${trade.profit > 0 ? 'text-signal-success' : trade.profit < 0 ? 'text-signal-danger' : ''}`}>
                       {trade.profit ? `${trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}%` : '-'}
                     </TableCell>
                     <TableCell>
@@ -147,13 +141,26 @@ const AllTradesList: React.FC<AllTradesListProps> = ({ trades, loading, limit = 
                   </TableRow>
                   {expandedTrade === trade.id && (
                     <TableRow>
-                      <TableCell colSpan={6} className="p-1 bg-muted/5">
+                      <TableCell colSpan={6} className="p-2 bg-muted/5">
                         <div className="text-xs space-y-2">
-                          <div><strong>Ticket:</strong> {trade.ticket}</div>
-                          <div><strong>Miktar:</strong> {trade.volume}</div>
-                          <div><strong>SL:</strong> {formatPrice(trade.sl)}</div>
-                          <div><strong>TP:</strong> {formatPrice(trade.tp)}</div>
-                          <div><strong>Durum:</strong> {trade.status === 0 ? 'Kapalı' : 'Açık'}</div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <div><strong>Borsa:</strong> {trade.api_name || "Bilinmiyor"}</div>
+                              <div><strong>Sembol:</strong> {trade.symbol}</div>
+                              <div><strong>Yön:</strong> {trade.trend}</div>
+                              <div><strong>Açılış Fiyatı:</strong> {formatPrice(trade.open)}</div>
+                              <div><strong>Açılış Tarihi:</strong> {formatDate(trade.opentime)}</div>
+                            </div>
+                            <div>
+                              <div><strong>Kapanış Fiyatı:</strong> {formatPrice(trade.close)}</div>
+                              <div><strong>Kapanış Tarihi:</strong> {formatDate(trade.closetime)}</div>
+                              <div><strong>Kâr/Zarar:</strong> <span className={`${trade.profit > 0 ? 'text-signal-success' : trade.profit < 0 ? 'text-signal-danger' : ''}`}>
+                                {trade.profit ? `${trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}%` : '-'}
+                              </span></div>
+                              <div><strong>Miktar:</strong> {trade.volume}</div>
+                              <div><strong>Durum:</strong> {trade.status === 0 ? 'Kapalı' : 'Açık'}</div>
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
                     </TableRow>
